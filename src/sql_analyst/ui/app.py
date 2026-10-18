@@ -7,6 +7,7 @@ import pandas as pd
 import plotly.io as pio
 import streamlit as st
 
+from sql_analyst.config import get_settings
 from sql_analyst.graph.service import TurnResult
 from sql_analyst.llm import LLMConfigError
 from sql_analyst.ui import client as client_mod
@@ -40,6 +41,8 @@ def init_session(client) -> None:
         st.session_state.thread_id = client.new_thread_id()
         # [{"role": "user", "content": str} | {"role": "assistant", "result": dict}]
         st.session_state.messages = []
+        # Not reset by "New conversation", so the cap can't be bypassed that way.
+        st.session_state.questions_asked = 0
 
 
 def reset_conversation(client) -> None:
@@ -107,7 +110,13 @@ def render_result(client, result: TurnResult, index: int, is_last: bool) -> None
         st.feedback("thumbs", key=key, on_change=send_feedback, args=(client, result.run_id, key))
 
 
+def questions_left() -> int | None:
+    cap = get_settings().ui_max_questions_per_session
+    return None if cap == 0 else max(0, cap - st.session_state.get("questions_asked", 0))
+
+
 def ask(client, question: str) -> None:
+    st.session_state.questions_asked = st.session_state.get("questions_asked", 0) + 1
     st.session_state.messages.append({"role": "user", "content": question})
     with st.spinner("Thinking…"):
         result = client.ask(st.session_state.thread_id, question)
@@ -165,11 +174,22 @@ def main() -> None:
     awaiting = (
         bool(messages) and messages[-1].get("result", {}).get("status") == "awaiting_approval"
     )
-    prompt = st.chat_input(
-        "Approve or reject the query above first" if awaiting else "Ask a question about the data…",
-        disabled=awaiting,
+    left = questions_left()
+    exhausted = left == 0
+    if exhausted:
+        st.info(
+            "You've reached this demo's question limit for the session (it runs on a shared "
+            "free-tier LLM quota). Run it locally for unlimited use; see the README."
+        )
+    placeholder = (
+        "Approve or reject the query above first"
+        if awaiting
+        else "Question limit reached"
+        if exhausted
+        else "Ask a question about the data…"
     )
-    question = prompt or (None if awaiting else example)
+    prompt = st.chat_input(placeholder, disabled=awaiting or exhausted)
+    question = prompt or (None if awaiting or exhausted else example)
     if question:
         ask(client, question)
 

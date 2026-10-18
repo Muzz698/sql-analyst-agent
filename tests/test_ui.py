@@ -77,3 +77,17 @@ def test_new_conversation_clears_messages(app_with):
     next(b for b in at.button if b.label == "New conversation").click().run()
     assert at.session_state.messages == []
     assert at.session_state.thread_id != old_thread
+
+
+def test_session_question_limit(app_with, monkeypatch):
+    monkeypatch.setenv("UI_MAX_QUESTIONS_PER_SESSION", "1")
+    from sql_analyst.config import get_settings
+
+    get_settings.cache_clear()
+    at = app_with(turn_script())
+    at.chat_input[0].set_value("How many artists?").run()
+    assert "question limit" in all_text(at)
+    assert at.chat_input[0].disabled
+    # "New conversation" must not reset the cap
+    next(b for b in at.button if b.label == "New conversation").click().run()
+    assert at.chat_input[0].disabled

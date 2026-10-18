@@ -1,0 +1,27 @@
+# Secrets: never bake into an image (pass at runtime via env_file / Space secrets)
+.env
+.env.*
+
+# Local environments and caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Runtime data (Chinook is downloaded during the build)
+data/*.sqlite
+data/*.sqlite-*
+data/*.part
+
+# Not needed at runtime
+.git/
+.github/
+tests/
+evals/
+docs/
+*.md
+!README.md
+.DS_Store

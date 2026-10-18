@@ -1,0 +1,31 @@
+# Manually deploy to a Hugging Face Space (Docker SDK, free CPU tier).
+# One-time setup:
+#   1. Create a Space at https://huggingface.co/new-space (SDK: Docker, hardware: free CPU)
+#   2. In the Space settings, add a secret GROQ_API_KEY (and optionally LANGSMITH_*)
+#   3. In this GitHub repo: Settings -> Secrets -> HF_TOKEN (a write token),
+#      Settings -> Variables -> HF_SPACE (e.g. "your-username/sql-analyst-agent")
+# Then: Actions -> "Deploy to Hugging Face Space" -> Run workflow.
+name: Deploy to Hugging Face Space
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Use the Space README (HF reads its config from README front matter)
+        run: cp deploy/huggingface/README.md README.md
+      - name: Push to the Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE: ${{ vars.HF_SPACE }}
+        run: |
+          test -n "$HF_TOKEN" && test -n "$HF_SPACE" || { echo "Set HF_TOKEN secret and HF_SPACE variable"; exit 1; }
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git commit -am "Deploy ${GITHUB_SHA::7} to Hugging Face Space"
+          git push --force "https://user:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}" HEAD:main

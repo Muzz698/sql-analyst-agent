@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     # --- Evaluation ----------------------------------------------------------
     eval_delay_s: float = Field(default=2.0, ge=0)
 
+    # --- Public demo protection ------------------------------------------------
+    # Soft cap so one visitor can't exhaust the shared free-tier quota. 0 = unlimited.
+    ui_max_questions_per_session: int = Field(default=25, ge=0)
+
     # --- LangSmith (the SDK itself reads LANGSMITH_* from os.environ) ---------
     langsmith_tracing: bool = False
     langsmith_api_key: SecretStr | None = None

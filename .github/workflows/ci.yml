@@ -18,6 +18,10 @@ jobs:
           enable-cache: true
       - run: uv python install 3.11
       - run: uv sync --locked
+      - name: requirements.txt in sync with uv.lock (used by Streamlit Cloud)
+        run: |
+          uv export --no-dev --no-hashes --no-header --format requirements-txt -o /tmp/requirements.txt -q
+          diff requirements.txt /tmp/requirements.txt
       - name: Lint
         run: |
           uv run ruff check .
@@ -26,3 +30,16 @@ jobs:
         run: uv run python data/download_chinook.py
       - name: Test
         run: uv run pytest --cov=sql_analyst --cov-report=term-missing
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t sql-analyst-agent .
+      - name: Smoke test (container boots, Streamlit healthy, DB baked in)
+        run: |
+          docker run -d --name app -e LLM_PROVIDER=fake -p 7860:7860 sql-analyst-agent
+          for i in $(seq 1 30); do curl -sf localhost:7860/_stcore/health && break; sleep 2; done
+          curl -sf localhost:7860/_stcore/health
+          docker exec app python -c "import sqlite3; print(sqlite3.connect('data/chinook.sqlite').execute('select count(*) from Invoice').fetchone())"
