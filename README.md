@@ -2,7 +2,7 @@
 
 > A multi-agent LangGraph system that answers plain-English business questions over a SQL database: safely, with self-correction, human approval for risky queries, and measured accuracy.
 
-[![CI](https://github.com/<your-username>/sql-analyst-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/<your-username>/sql-analyst-agent/actions/workflows/ci.yml)
+[![CI](https://github.com/Muzz698/sql-analyst-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Muzz698/sql-analyst-agent/actions/workflows/ci.yml)
 ![Python 3.11](https://img.shields.io/badge/python-3.11-blue)
 ![Cost: $0](https://img.shields.io/badge/cost-%240-brightgreen)
 
@@ -75,7 +75,7 @@ Python 3.11 · LangGraph · LangChain · Groq (`openai/gpt-oss-120b`; `qwen/qwen
 **Prerequisites:** [uv](https://docs.astral.sh/uv/) and a free [Groq API key](https://console.groq.com/keys).
 
 ```bash
-git clone https://github.com/<your-username>/sql-analyst-agent.git
+git clone https://github.com/Muzz698/sql-analyst-agent.git
 cd sql-analyst-agent
 uv sync                                   # installs Python 3.11 + locked deps
 uv run python data/download_chinook.py    # checksum-verified sample DB
