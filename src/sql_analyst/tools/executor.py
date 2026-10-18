@@ -8,6 +8,8 @@ import sqlite3
 import time
 from pathlib import Path
 
+from langsmith import traceable
+
 from sql_analyst.schemas import QueryResult
 
 # How many SQLite VM instructions between timeout checks.
@@ -31,6 +33,7 @@ def connect_readonly(db_path: Path | str) -> sqlite3.Connection:
     return conn
 
 
+@traceable(run_type="tool", name="execute_sql")
 def execute_sql(
     sql: str,
     db_path: Path | str,

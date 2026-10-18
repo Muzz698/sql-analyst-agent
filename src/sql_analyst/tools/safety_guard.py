@@ -9,6 +9,7 @@ This is defence layer 1. Layer 2 is the executor opening SQLite read-only.
 """
 
 import sqlglot
+from langsmith import traceable
 from sqlglot import exp
 from sqlglot.errors import ParseError
 
@@ -82,6 +83,7 @@ def _cost_flags(query: exp.Query, table_rows: dict[str, int]) -> list[str]:
     return sorted(set(flags))
 
 
+@traceable(run_type="tool", name="validate_sql")
 def validate_sql(
     sql: str,
     row_limit: int = 200,

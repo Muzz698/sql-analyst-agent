@@ -39,23 +39,40 @@ class TurnResult(BaseModel):
     approval: ApprovalRequest | None = None
     error: str | None = None
     latency_ms: float = 0.0
+    run_id: str | None = None  # LangSmith trace id, for user feedback
 
 
 class AnalystService:
-    def __init__(self, graph):
+    def __init__(
+        self,
+        graph,
+        metadata: dict[str, Any] | None = None,
+        tags: list[str] | None = None,
+        callbacks: list | None = None,
+    ):
         self.graph = graph
+        self.metadata = metadata or {}
+        self.tags = tags or []
+        self.callbacks = callbacks or []  # extra handlers, e.g. metrics or test recorders
 
     @staticmethod
     def new_thread_id() -> str:
         return uuid.uuid4().hex
 
-    def _config(self, thread_id: str, run_name: str) -> dict:
-        return {
+    def _config(self, thread_id: str, run_name: str, run_id: uuid.UUID | None = None) -> dict:
+        config = {
             "configurable": {"thread_id": thread_id},
             "recursion_limit": RECURSION_LIMIT,
             "run_name": run_name,
-            "metadata": {"thread_id": thread_id},
+            # LangSmith groups traces sharing "thread_id" into one conversation thread.
+            "metadata": {**self.metadata, "thread_id": thread_id},
+            "tags": self.tags,
         }
+        if run_id is not None:
+            config["run_id"] = run_id
+        if self.callbacks:
+            config["callbacks"] = self.callbacks
+        return config
 
     def ask(self, thread_id: str, question: str) -> TurnResult:
         return self._run(thread_id, {"question": question}, question, "sql_analyst.ask")
@@ -77,17 +94,19 @@ class AnalystService:
 
     def _run(self, thread_id: str, payload, question: str, run_name: str) -> TurnResult:
         start = time.monotonic()
+        run_id = uuid.uuid4()
         try:
-            out = self.graph.invoke(payload, self._config(thread_id, run_name))
+            out = self.graph.invoke(payload, self._config(thread_id, run_name, run_id))
         except Exception as e:  # LLM outage after all retries, etc.
             return TurnResult(
                 thread_id=thread_id, status="error", question=question,
                 answer="Something went wrong while answering. Please try again.",
-                error=f"{type(e).__name__}: {e}",
+                error=f"{type(e).__name__}: {e}", run_id=str(run_id),
                 latency_ms=round((time.monotonic() - start) * 1000, 1),
             )  # fmt: skip
         result = self._to_result(thread_id, question, out)
         result.latency_ms = round((time.monotonic() - start) * 1000, 1)
+        result.run_id = str(run_id)
         return result
 
     def _to_result(self, thread_id: str, question: str, out: dict) -> TurnResult:
@@ -120,3 +139,26 @@ class AnalystService:
             chart_json=out.get("chart_json"),
             error=out.get("error"),
         )
+
+
+def create_service(settings=None, llm=None, checkpointer=None) -> AnalystService:
+    """Production entry point: configure tracing, build the graph, label runs by config."""
+    from sql_analyst.config import get_settings
+    from sql_analyst.graph.builder import build_graph
+    from sql_analyst.graph.checkpointer import sqlite_checkpointer
+    from sql_analyst.llm import get_llm
+    from sql_analyst.tracing import configure_tracing
+
+    settings = settings or get_settings()
+    configure_tracing(settings)
+    llm = llm or get_llm(settings)
+    checkpointer = checkpointer or sqlite_checkpointer(settings.checkpoint_db_path)
+    graph = build_graph(llm=llm, settings=settings, checkpointer=checkpointer)
+    metadata = {
+        "llm": llm.name,
+        "few_shot": settings.use_few_shot,
+        "schema_pruning": settings.use_schema_pruning,
+        "max_sql_retries": settings.max_sql_retries,
+    }
+    tags = [llm.name, "few_shot" if settings.use_few_shot else "zero_shot"]
+    return AnalystService(graph, metadata=metadata, tags=tags)

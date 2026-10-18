@@ -19,6 +19,7 @@ from sql_analyst.graph import routing
 from sql_analyst.graph.nodes import Nodes
 from sql_analyst.graph.state import AgentState
 from sql_analyst.llm import StructuredLLM, get_llm
+from sql_analyst.tracing import NODE_METADATA
 
 TERMINALS = ["clarify", "out_of_scope", "blocked", "rejected", "failed"]
 
@@ -41,7 +42,7 @@ def build_graph(
         "start_turn", "router", "schema_agent", "sql_writer", "safety_guard",
         "human_approval", "executor", "analyst", "chart_agent", "finalize", *TERMINALS,
     ]:  # fmt: skip
-        g.add_node(name, getattr(n, name))
+        g.add_node(name, getattr(n, name), metadata=NODE_METADATA[name])
 
     g.add_edge(START, "start_turn")
     g.add_edge("start_turn", "router")
