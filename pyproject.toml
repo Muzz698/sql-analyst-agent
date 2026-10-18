@@ -41,6 +41,7 @@ select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]  # lets tests import the evals package
 addopts = "-q"
 
 [dependency-groups]
