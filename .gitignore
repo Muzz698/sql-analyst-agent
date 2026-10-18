@@ -1,0 +1,30 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Data (downloaded / generated at runtime)
+data/*.sqlite
+data/*.db
+data/*.sqlite-*
+*.db-shm
+*.db-wal
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/
