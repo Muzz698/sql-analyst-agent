@@ -6,7 +6,7 @@
 ![Python 3.11](https://img.shields.io/badge/python-3.11-blue)
 ![Cost: $0](https://img.shields.io/badge/cost-%240-brightgreen)
 
-**Live demo:** _coming soon_ · **Demo GIF:** _coming soon_
+**Live demo:** (https://sql-analyst-agent-cdc3scmgcs5ywkl5q2upsc.streamlit.app/)
 
 <!-- ![Demo](docs/demo.gif) -->
 
