@@ -44,3 +44,34 @@ def tiny_db(tmp_path) -> Path:
             """
         )
     return path
+
+
+# --- Shared fake-LLM service builder (API + UI tests) ------------------------
+
+
+def turn_script(
+    sql: str = "SELECT COUNT(*) AS n FROM Artist", answer: str = "There are 3 artists."
+):
+    """FakeLLM script for one successful SQL turn."""
+    return {
+        "RouterDecision": [
+            {"reasoning": "r", "intent": "sql", "standalone_question": "q", "confidence": 0.95}
+        ],
+        "TableSelection": [{"reasoning": "r", "tables": ["Artist"]}],
+        "SQLDraft": [{"reasoning": "r", "sql": sql}],
+        "AnalystOutput": [{"answer": answer, "chart_recommended": False}],
+    }
+
+
+@pytest.fixture
+def fake_service(tiny_db):
+    from langgraph.checkpoint.memory import InMemorySaver
+
+    from sql_analyst.graph.service import create_service
+    from sql_analyst.llm import FakeLLM
+
+    def _make(script):
+        settings = Settings(llm_provider="fake", db_path=tiny_db)
+        return create_service(settings, llm=FakeLLM(script), checkpointer=InMemorySaver())
+
+    return _make

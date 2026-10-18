@@ -24,6 +24,29 @@ class QueryTimeoutError(QueryError):
     pass
 
 
+def unique_columns(names: list[str]) -> list[str]:
+    """Make column names unique (Name, Name_2, ...): joins often return duplicates, which
+    break DataFrames and make chart column choices ambiguous."""
+    seen: dict[str, int] = {}
+    taken = set(names)
+    out = []
+    for name in names:
+        if name not in seen:
+            seen[name] = 1
+            out.append(name)
+            continue
+        n = seen[name]
+        while True:
+            n += 1
+            candidate = f"{name}_{n}"
+            if candidate not in taken:
+                break
+        seen[name] = n
+        taken.add(candidate)
+        out.append(candidate)
+    return out
+
+
 def connect_readonly(db_path: Path | str) -> sqlite3.Connection:
     path = Path(db_path)
     if not path.exists():
@@ -48,7 +71,7 @@ def execute_sql(
     conn.set_progress_handler(lambda: int(time.monotonic() > deadline), _PROGRESS_INTERVAL)
     try:
         cur = conn.execute(sql)
-        columns = [d[0] for d in cur.description or []]
+        columns = unique_columns([d[0] for d in cur.description or []])
         fetched = cur.fetchmany(max_rows + 1)
     except sqlite3.OperationalError as e:
         if "interrupted" in str(e).lower():

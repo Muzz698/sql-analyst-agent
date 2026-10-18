@@ -49,8 +49,10 @@ class AnalystService:
         metadata: dict[str, Any] | None = None,
         tags: list[str] | None = None,
         callbacks: list | None = None,
+        db_path=None,
     ):
         self.graph = graph
+        self.db_path = db_path  # for schema listing in the API/UI
         self.metadata = metadata or {}
         self.tags = tags or []
         self.callbacks = callbacks or []  # extra handlers, e.g. metrics or test recorders
@@ -161,4 +163,4 @@ def create_service(settings=None, llm=None, checkpointer=None) -> AnalystService
         "max_sql_retries": settings.max_sql_retries,
     }
     tags = [llm.name, "few_shot" if settings.use_few_shot else "zero_shot"]
-    return AnalystService(graph, metadata=metadata, tags=tags)
+    return AnalystService(graph, metadata=metadata, tags=tags, db_path=settings.db_path)

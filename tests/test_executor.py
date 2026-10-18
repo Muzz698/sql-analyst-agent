@@ -50,3 +50,15 @@ def test_missing_database(tmp_path):
 
 def test_chinook_smoke(chinook_db):
     assert execute_sql("SELECT count(*) FROM Invoice", chinook_db).rows == [[412]]
+
+
+def test_duplicate_column_names_are_made_unique(tiny_db):
+    r = execute_sql("SELECT * FROM Artist a JOIN Album b ON a.ArtistId = b.ArtistId", tiny_db)
+    assert r.columns == ["ArtistId", "Name", "AlbumId", "Title", "ArtistId_2"]
+
+
+def test_unique_columns_avoids_collisions():
+    from sql_analyst.tools.executor import unique_columns
+
+    assert unique_columns(["a", "a", "a_2", "b"]) == ["a", "a_3", "a_2", "b"]
+    assert unique_columns(["x", "x", "x"]) == ["x", "x_2", "x_3"]
