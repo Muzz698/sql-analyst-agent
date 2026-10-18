@@ -58,3 +58,60 @@ class TableInfo(BaseModel):
     foreign_keys: list[ForeignKey] = Field(default_factory=list)
     row_count: int = 0
     sample_rows: list[list[Any]] = Field(default_factory=list)
+
+
+# --- Agent outputs (LLM-facing: field descriptions are part of the prompt) ---
+
+
+class RouterDecision(BaseModel):
+    reasoning: str = Field(description="One short sentence explaining the decision.")
+    intent: Literal["sql", "clarify", "out_of_scope"] = Field(
+        description=(
+            "sql: answerable by a read-only query on this database. "
+            "clarify: plausibly answerable but too ambiguous to write SQL for. "
+            "out_of_scope: unrelated to the data, or asks to modify/delete data."
+        )
+    )
+    standalone_question: str = Field(
+        description="The question rewritten to be self-contained, resolving references to "
+        "earlier turns (e.g. 'what about 2012?' -> 'What was total revenue in 2012?')."
+    )
+    clarification_question: str | None = Field(
+        default=None, description="If intent is clarify, the question to ask the user."
+    )
+    confidence: float = Field(ge=0, le=1, description="Confidence in the chosen intent, 0-1.")
+
+
+class TableSelection(BaseModel):
+    reasoning: str = Field(description="One short sentence on why these tables.")
+    tables: list[str] = Field(description="Exact names of the tables needed to answer.")
+
+
+class SQLDraft(BaseModel):
+    reasoning: str = Field(description="Brief plan: tables, joins, filters, aggregation.")
+    sql: str = Field(description="A single read-only SQLite SELECT statement.")
+
+
+class AnalystOutput(BaseModel):
+    answer: str = Field(
+        description="Plain-English answer to the question, citing the key numbers. "
+        "Use only facts present in the result."
+    )
+    chart_recommended: bool = Field(
+        description="True if a chart would genuinely help (comparisons, trends, distributions)."
+    )
+
+
+class ChartSpec(BaseModel):
+    chart_type: Literal["bar", "line", "pie", "scatter"]
+    x: str = Field(description="Result column for the x-axis (or pie labels).")
+    y: str = Field(description="Numeric result column for the y-axis (or pie values).")
+    color: str | None = Field(default=None, description="Optional column to colour/group by.")
+    title: str
+
+
+class Attempt(BaseModel):
+    """A previous SQL attempt and why it failed, fed back for self-correction."""
+
+    sql: str
+    error: str

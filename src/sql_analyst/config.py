@@ -25,10 +25,13 @@ class Settings(BaseSettings):
     # --- LLM -----------------------------------------------------------------
     llm_provider: Literal["groq", "ollama", "fake"] = "groq"
     groq_api_key: SecretStr | None = None
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = "openai/gpt-oss-120b"
     ollama_model: str = "qwen3:4b"
     ollama_base_url: str = "http://localhost:11434"
     llm_temperature: float = 0.0
+    # gpt-oss / qwen3 reasoning tokens count against Groq's free-tier tokens/minute,
+    # so default to "low". Set empty to omit the parameter for models without it.
+    groq_reasoning_effort: str | None = "low"
 
     # Retry with exponential backoff on rate limits / transient errors.
     llm_max_attempts: int = Field(default=5, ge=1)

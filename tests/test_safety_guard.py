@@ -106,3 +106,10 @@ def test_flags_full_scan_of_large_table_only():
     assert validate_sql("SELECT * FROM Genre", table_rows=rows).flags == []
     filtered = validate_sql("SELECT * FROM Track WHERE GenreId = 1", table_rows=rows)
     assert filtered.flags == []
+
+
+def test_trailing_semicolon_accepted():
+    """LLMs commonly end SQL with ';' -- that's still a single statement."""
+    r = validate_sql("SELECT COUNT(*) FROM Artist;")
+    assert r.status == "ok"
+    assert ";" not in r.sql

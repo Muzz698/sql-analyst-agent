@@ -9,7 +9,7 @@ def test_defaults_are_safe_and_free():
     assert s.llm_provider == "fake"
     assert s.groq_api_key is None
     assert s.max_sql_retries == 3
-    assert s.groq_model == "llama-3.3-70b-versatile"
+    assert s.groq_model == "openai/gpt-oss-120b"
 
 
 def test_secret_not_exposed_in_repr(monkeypatch):

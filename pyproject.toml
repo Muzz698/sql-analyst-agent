@@ -17,6 +17,7 @@ dependencies = [
     "plotly>=7.1.0",
     "pydantic>=2.14.1",
     "pydantic-settings>=2.16.0",
+    "pyyaml>=6.0.3",
     "sqlglot>=30.23.0",
     "streamlit>=1.66.0",
     "tenacity>=9.2.1",

@@ -1,0 +1,52 @@
+# Few-shot examples for the SQL writer.
+# IMPORTANT: none of these may duplicate a question in evals/dataset.jsonl
+# (that would leak answers into the evaluation). tests/test_eval_dataset.py checks this.
+
+- question: Which 5 artists have released the most albums?
+  sql: |
+    SELECT ar.Name, COUNT(al.AlbumId) AS album_count
+    FROM Artist ar
+    JOIN Album al ON al.ArtistId = ar.ArtistId
+    GROUP BY ar.ArtistId, ar.Name
+    ORDER BY album_count DESC
+    LIMIT 5
+
+- question: What was the total revenue for each year?
+  sql: |
+    SELECT strftime('%Y', InvoiceDate) AS year, ROUND(SUM(Total), 2) AS revenue
+    FROM Invoice
+    GROUP BY year
+    ORDER BY year
+
+- question: How many tracks are longer than 5 minutes?
+  sql: |
+    SELECT COUNT(*) AS long_tracks
+    FROM Track
+    WHERE Milliseconds > 5 * 60 * 1000
+
+- question: Which support rep looks after the most customers?
+  sql: |
+    SELECT e.FirstName || ' ' || e.LastName AS rep, COUNT(c.CustomerId) AS customers
+    FROM Employee e
+    JOIN Customer c ON c.SupportRepId = e.EmployeeId
+    GROUP BY e.EmployeeId
+    ORDER BY customers DESC
+    LIMIT 1
+
+- question: What are the top 3 genres by number of tracks sold?
+  sql: |
+    SELECT g.Name AS genre, SUM(il.Quantity) AS tracks_sold
+    FROM InvoiceLine il
+    JOIN Track t ON t.TrackId = il.TrackId
+    JOIN Genre g ON g.GenreId = t.GenreId
+    GROUP BY g.GenreId
+    ORDER BY tracks_sold DESC
+    LIMIT 3
+
+- question: How many invoices were issued each month in 2012?
+  sql: |
+    SELECT strftime('%Y-%m', InvoiceDate) AS month, COUNT(*) AS invoices
+    FROM Invoice
+    WHERE strftime('%Y', InvoiceDate) = '2012'
+    GROUP BY month
+    ORDER BY month
