@@ -108,17 +108,39 @@ class LangChainLLM:
         name: str,
         settings: Settings,
         method: str = "json_schema",
+        strict: bool | None = None,
     ):
         self.chat_model = chat_model
         self.name = name
         self.method = method
+        self.strict = strict
         self._settings = settings
         self._cache: dict[type[BaseModel], Any] = {}
 
     def _structured(self, schema: type[T]):
         if schema not in self._cache:
-            self._cache[schema] = self.chat_model.with_structured_output(schema, method=self.method)
+            # include_raw: keep the raw message so parse failures can be diagnosed.
+            kwargs: dict[str, Any] = {"method": self.method, "include_raw": True}
+            if self.strict is not None:
+                kwargs["strict"] = self.strict
+            self._cache[schema] = self.chat_model.with_structured_output(schema, **kwargs)
         return self._cache[schema]
+
+    @staticmethod
+    def _unwrap(out: Any, schema: type[T], run_name: str) -> T:
+        if not (isinstance(out, dict) and "parsed" in out):
+            parsed, error, raw = out, None, None
+        else:
+            parsed, error, raw = out["parsed"], out.get("parsing_error"), out.get("raw")
+        if parsed is None or error is not None:
+            content = getattr(raw, "content", "")
+            finish = getattr(raw, "response_metadata", {}).get("finish_reason")
+            log.warning(
+                "%s: unparseable %s (finish_reason=%s, error=%s): %r",
+                run_name, schema.__name__, finish, error, str(content)[:300],
+            )  # fmt: skip
+            raise OutputParserException(f"No valid {schema.__name__} in model output: {error}")
+        return parsed
 
     def generate(self, schema, messages, *, run_name, metadata=None):
         s = self._settings
@@ -135,9 +157,7 @@ class LangChainLLM:
         )
         for attempt in retrying:
             with attempt:
-                result = runnable.invoke(list(messages))
-                if result is None:  # parser gave up silently
-                    raise OutputParserException(f"No {schema.__name__} parsed from model output")
+                result = self._unwrap(runnable.invoke(list(messages)), schema, run_name)
         return result
 
 
@@ -157,7 +177,9 @@ def _groq(settings: Settings, model: str) -> LangChainLLM:
         max_retries=0,  # our backoff policy is the single source of retries
         **kwargs,
     )
-    return LangChainLLM(chat, f"groq:{model}", settings)
+    # strict=True: Groq constrains decoding to the schema. Without it, gpt-oss sometimes
+    # echoes the JSON schema itself instead of an instance of it.
+    return LangChainLLM(chat, f"groq:{model}", settings, strict=True)
 
 
 def _ollama(settings: Settings, model: str) -> LangChainLLM:

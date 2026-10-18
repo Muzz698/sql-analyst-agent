@@ -120,7 +120,7 @@ class _StubChat:
         self.outcomes = list(outcomes)
         self.calls = 0
 
-    def with_structured_output(self, schema, method):
+    def with_structured_output(self, schema, method, include_raw=False, strict=None):
         def run(_messages):
             self.calls += 1
             out = self.outcomes.pop(0)
@@ -162,3 +162,20 @@ def test_langchain_llm_retries_when_parser_returns_none():
     chat = _StubChat([None, SQLDraft(reasoning="r", sql="SELECT 1")])
     llm = LangChainLLM(chat, "stub", _fast_settings())
     assert llm.generate(SQLDraft, [HumanMessage("q")], run_name="t").sql == "SELECT 1"
+
+
+def test_parse_failure_with_raw_output_is_retried():
+    """include_raw=True returns {'parsed', 'parsing_error', 'raw'}; a failed parse must retry."""
+    from langchain_core.messages import AIMessage
+
+    bad = {"parsed": None, "parsing_error": ValueError("schema echoed"), "raw": AIMessage("{}")}
+    good = {"parsed": SQLDraft(reasoning="r", sql="SELECT 1"), "parsing_error": None, "raw": None}
+    chat = _StubChat([bad, good])
+    llm = LangChainLLM(chat, "stub", _fast_settings())
+    assert llm.generate(SQLDraft, [HumanMessage("q")], run_name="t").sql == "SELECT 1"
+    assert chat.calls == 2
+
+
+def test_groq_uses_strict_structured_output():
+    assert get_llm(Settings(groq_api_key="gsk_test"), provider="groq").strict is True
+    assert get_llm(Settings(), provider="ollama").strict is None

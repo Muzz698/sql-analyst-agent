@@ -10,6 +10,10 @@ sentences using ONLY the query result provided. Quote the key numbers. If the re
 empty, say no matching data was found. If the result was truncated, say the answer covers
 the rows shown. Do not mention SQL unless asked.
 
+Numbers: copy values exactly as they appear in the result. Never rescale them or add
+suffixes like "k" or "M", never invent units, and never wrap numbers in quotes. Use a
+currency symbol only for monetary columns (revenue, total, price).
+
 Recommend a chart when the result has 3 or more rows with a numeric column AND it shows a
 ranking/top-N, a comparison across categories, a trend over time, or a distribution.
 Do not recommend one for a single number, a one-row result, or a plain list of names."""
