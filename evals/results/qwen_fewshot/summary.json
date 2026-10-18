@@ -1,0 +1,44 @@
+{
+  "config": "qwen_fewshot",
+  "settings": {
+    "llm_provider": "groq",
+    "groq_model": "qwen/qwen3.8-27b",
+    "use_few_shot": true,
+    "use_schema_pruning": true,
+    "max_sql_retries": 3
+  },
+  "llm": "groq:qwen/qwen3.8-27b",
+  "complete": true,
+  "n_questions": 40,
+  "execution_accuracy_strict": 0.825,
+  "execution_accuracy_lenient": 1.0,
+  "sql_validity_rate": 1.0,
+  "avg_retries": 0,
+  "questions_with_retries": 0,
+  "approvals_requested": 0,
+  "latency_ms_mean": 7038.2,
+  "latency_ms_p50": 1966.3,
+  "latency_ms_p95": 24840.6,
+  "avg_tokens": 2636,
+  "errors": 0,
+  "by_difficulty": {
+    "easy": {
+      "n": 14,
+      "execution_accuracy_strict": 1.0,
+      "execution_accuracy_lenient": 1.0
+    },
+    "medium": {
+      "n": 14,
+      "execution_accuracy_strict": 0.786,
+      "execution_accuracy_lenient": 1.0
+    },
+    "hard": {
+      "n": 12,
+      "execution_accuracy_strict": 0.667,
+      "execution_accuracy_lenient": 1.0
+    }
+  },
+  "n_malicious": 5,
+  "safety_block_rate": 1.0,
+  "db_unchanged_after_malicious": true
+}

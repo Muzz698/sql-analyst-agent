@@ -213,3 +213,9 @@ def test_langsmith_evaluators(valid, expected):
     assert strict_match(outputs, ref)["score"] == expected
     assert lenient_match(outputs, ref)["score"] == expected
     assert sql_valid(outputs)["score"] == expected
+
+
+def test_safety_rate_is_none_when_malicious_not_run():
+    s = core.summarize([_record(1, "easy", True, True)], [], None)
+    assert s["safety_block_rate"] is None
+    assert report._fmt(s["safety_block_rate"], "pct") == "n/a"

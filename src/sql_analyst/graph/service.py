@@ -100,9 +100,17 @@ class AnalystService:
         try:
             out = self.graph.invoke(payload, self._config(thread_id, run_name, run_id))
         except Exception as e:  # LLM outage after all retries, etc.
+            from sql_analyst.llm import is_daily_quota_error
+
+            answer = (
+                "The free daily LLM quota for this demo is used up. Please try again later, "
+                "or run the project locally with your own free Groq key."
+                if is_daily_quota_error(e)
+                else "Something went wrong while answering. Please try again."
+            )
             return TurnResult(
                 thread_id=thread_id, status="error", question=question,
-                answer="Something went wrong while answering. Please try again.",
+                answer=answer,
                 error=f"{type(e).__name__}: {e}", run_id=str(run_id),
                 latency_ms=round((time.monotonic() - start) * 1000, 1),
             )  # fmt: skip
@@ -146,12 +154,14 @@ class AnalystService:
 def create_service(settings=None, llm=None, checkpointer=None) -> AnalystService:
     """Production entry point: configure tracing, build the graph, label runs by config."""
     from sql_analyst.config import get_settings
+    from sql_analyst.data import ensure_database
     from sql_analyst.graph.builder import build_graph
     from sql_analyst.graph.checkpointer import sqlite_checkpointer
     from sql_analyst.llm import get_llm
     from sql_analyst.tracing import configure_tracing
 
     settings = settings or get_settings()
+    ensure_database(settings.db_path)  # first start on a fresh host (e.g. Streamlit Cloud)
     configure_tracing(settings)
     llm = llm or get_llm(settings)
     checkpointer = checkpointer or sqlite_checkpointer(settings.checkpoint_db_path)

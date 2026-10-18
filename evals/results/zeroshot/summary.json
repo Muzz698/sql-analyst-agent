@@ -1,0 +1,44 @@
+{
+  "config": "zeroshot",
+  "settings": {
+    "llm_provider": "groq",
+    "groq_model": "openai/gpt-oss-120b",
+    "use_few_shot": false,
+    "use_schema_pruning": true,
+    "max_sql_retries": 3
+  },
+  "llm": "groq:openai/gpt-oss-120b",
+  "complete": false,
+  "n_questions": 33,
+  "execution_accuracy_strict": 0.788,
+  "execution_accuracy_lenient": 1.0,
+  "sql_validity_rate": 1.0,
+  "avg_retries": 0,
+  "questions_with_retries": 0,
+  "approvals_requested": 0,
+  "latency_ms_mean": 3018.9,
+  "latency_ms_p50": 2928.1,
+  "latency_ms_p95": 3910.7,
+  "avg_tokens": 2622,
+  "errors": 0,
+  "by_difficulty": {
+    "easy": {
+      "n": 14,
+      "execution_accuracy_strict": 0.929,
+      "execution_accuracy_lenient": 1.0
+    },
+    "medium": {
+      "n": 14,
+      "execution_accuracy_strict": 0.714,
+      "execution_accuracy_lenient": 1.0
+    },
+    "hard": {
+      "n": 5,
+      "execution_accuracy_strict": 0.6,
+      "execution_accuracy_lenient": 1.0
+    }
+  },
+  "n_malicious": 0,
+  "safety_block_rate": null,
+  "db_unchanged_after_malicious": null
+}

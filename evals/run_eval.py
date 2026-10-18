@@ -5,6 +5,7 @@ Usage:
     uv run python -m evals.run_eval --config zeroshot --delay 5
     uv run python -m evals.run_eval --config fewshot --limit 3 --fresh   # quick smoke run
     uv run python -m evals.run_eval --config fewshot --langsmith          # also log to LangSmith
+    uv run python -m evals.run_eval --config zeroshot --summarize-only    # rebuild summary only
 
 Results are appended one record at a time to evals/results/<config>/, so an
 interrupted run (rate limits, laptop sleep) resumes where it stopped.
@@ -35,6 +36,37 @@ def make_service(config: str):
     return create_service(settings, checkpointer=InMemorySaver()), settings
 
 
+class DailyQuotaExhausted(RuntimeError):
+    pass
+
+
+def write_summary(config: str, examples: list[dict], db_unchanged: bool | None) -> dict:
+    out_dir = RESULTS / config
+    records_path, malicious_path = out_dir / "records.jsonl", out_dir / "malicious.jsonl"
+    settings = get_settings().model_copy(update=CONFIGS[config])
+    previous = out_dir / "summary.json"
+    if db_unchanged is None and previous.exists():
+        db_unchanged = json.loads(previous.read_text()).get("db_unchanged_after_malicious")
+    ids = {e["id"] for e in examples}
+    records = [r for r in core.load_jsonl(records_path) if r["id"] in ids]
+    summary = {
+        "config": config,
+        "settings": {**CONFIGS[config], "max_sql_retries": settings.max_sql_retries},
+        "llm": f"{settings.llm_provider}:{settings.groq_model}",
+        "complete": len(records) == len(examples),
+        **core.summarize(records, core.load_jsonl(malicious_path), db_unchanged),
+    }
+    out_dir.mkdir(parents=True, exist_ok=True)
+    previous.write_text(json.dumps(summary, indent=2) + "\n")
+    return summary
+
+
+def _check_quota(record: dict) -> None:
+    # Daily quota can't recover mid-run; stop rather than record a string of errors.
+    if record["status"] == "error" and "per day" in (record.get("error") or "").lower():
+        raise DailyQuotaExhausted(record["error"])
+
+
 def run(config: str, delay: float | None, limit: int | None, fresh: bool, malicious: bool) -> dict:
     out_dir = RESULTS / config
     if fresh and out_dir.exists():
@@ -56,6 +88,7 @@ def run(config: str, delay: float | None, limit: int | None, fresh: bool, malici
 
     for i, example in enumerate(todo, start=1):
         record = core.run_example(service, example)
+        _check_quota(record)
         core.append_jsonl(records_path, record)
         mark = "✓" if record["strict_match"] else ("~" if record["lenient_match"] else "✗")
         log.info(
@@ -71,6 +104,8 @@ def run(config: str, delay: float | None, limit: int | None, fresh: bool, malici
         done_mal = {r["id"] for r in core.load_jsonl(malicious_path)}
         for example in [m for m in core.load_jsonl(MALICIOUS) if m["id"] not in done_mal]:
             record = core.run_malicious(service, example)
+            if record["status"] == "error":
+                raise DailyQuotaExhausted(record["answer"] or "LLM error")
             core.append_jsonl(malicious_path, record)
             log.info(
                 "malicious %s -> %s (%s)", record["id"], record["status"], record["blocked_by"]
@@ -78,16 +113,7 @@ def run(config: str, delay: float | None, limit: int | None, fresh: bool, malici
             time.sleep(delay)
         db_unchanged = core.file_sha256(settings.db_path) == before
 
-    ids = {e["id"] for e in examples}
-    records = [r for r in core.load_jsonl(records_path) if r["id"] in ids]
-    summary = {
-        "config": config,
-        "settings": {**CONFIGS[config], "max_sql_retries": settings.max_sql_retries},
-        "llm": service.metadata["llm"],
-        **core.summarize(records, core.load_jsonl(malicious_path), db_unchanged),
-    }
-    (out_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
-    return summary
+    return write_summary(config, examples, db_unchanged)
 
 
 def main() -> None:
@@ -109,8 +135,12 @@ def main() -> None:
     parser.add_argument(
         "--langsmith", action="store_true", help="run as a LangSmith experiment instead"
     )
+    parser.add_argument(
+        "--summarize-only", action="store_true", help="rebuild summary.json from saved records"
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
+    logging.getLogger("httpx").setLevel(logging.WARNING)  # one line per HTTP call is noise
 
     if args.langsmith:
         from evals.langsmith_eval import run_langsmith_experiment
@@ -118,7 +148,15 @@ def main() -> None:
         run_langsmith_experiment(args.config, delay=args.delay)
         return
 
-    summary = run(args.config, args.delay, args.limit, args.fresh, not args.no_malicious)
+    examples = core.load_jsonl(DATASET)[: args.limit]
+    if args.summarize_only:
+        summary = write_summary(args.config, examples, None)
+    else:
+        try:
+            summary = run(args.config, args.delay, args.limit, args.fresh, not args.no_malicious)
+        except DailyQuotaExhausted as e:
+            log.error("Stopping: Groq daily quota exhausted (%s). Re-run later to resume.", e)
+            summary = write_summary(args.config, examples, None)
     print(json.dumps({k: v for k, v in summary.items() if k != "by_difficulty"}, indent=2))
 
 

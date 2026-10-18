@@ -58,7 +58,14 @@ _TRANSIENT = (
 _MALFORMED = (OutputParserException, ValidationError)
 
 
+def is_daily_quota_error(exc: BaseException) -> bool:
+    """Groq free tier also caps tokens/requests *per day*; those don't clear in seconds."""
+    return isinstance(exc, groq.RateLimitError) and "per day" in str(exc).lower()
+
+
 def is_retryable(exc: BaseException) -> bool:
+    if is_daily_quota_error(exc):
+        return False  # fail fast: retrying for minutes can't help
     if isinstance(exc, _TRANSIENT + _MALFORMED):
         return True
     # Groq returns 400 "tool_use_failed"/"json_validate_failed" for malformed structured output.

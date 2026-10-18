@@ -11,6 +11,7 @@ from evals import core
 RESULTS = Path(__file__).resolve().parent / "results"
 
 ROWS = [
+    ("Questions evaluated", "n_questions", "int"),
     ("Execution accuracy (strict)", "execution_accuracy_strict", "pct"),
     ("Execution accuracy (lenient, extra columns OK)", "execution_accuracy_lenient", "pct"),
     ("  easy (strict)", ("by_difficulty", "easy", "execution_accuracy_strict"), "pct"),
@@ -94,9 +95,43 @@ def build() -> str:
         lines.append(
             f"| {label} | " + " | ".join(_fmt(_get(s, key), kind) for s in summaries) + " |"
         )
+    lines += common_subset_table(summaries)
     for s in summaries:
         lines += failures_table(s["config"])
     return "\n".join(lines) + "\n"
+
+
+def common_subset_table(summaries: list[dict]) -> list[str]:
+    """If any run is incomplete, compare every config on the questions all of them finished."""
+    if all(s.get("complete", True) for s in summaries):
+        return []
+    per_config = {
+        s["config"]: {r["id"]: r for r in core.load_jsonl(RESULTS / s["config"] / "records.jsonl")}
+        for s in summaries
+    }
+    common = set.intersection(*(set(recs) for recs in per_config.values()))
+    incomplete = ", ".join(f"`{s['config']}`" for s in summaries if not s.get("complete", True))
+    lines = [
+        "",
+        f"### Like-for-like: the {len(common)} questions every config completed",
+        "",
+        f"{incomplete} did not finish all questions (Groq free-tier daily token limit), so "
+        "this table compares all configs on the same subset.",
+        "",
+        "| Metric | " + " | ".join(f"`{c}`" for c in per_config) + " |",
+        "|---|" + "---|" * len(per_config),
+    ]
+    subset = {
+        c: core.summarize([recs[i] for i in sorted(common)], [], None)
+        for c, recs in per_config.items()
+    }
+    for label, key, kind in ROWS[:8] + [
+        r for r in ROWS if r[1] in ("latency_ms_p50", "avg_tokens")
+    ]:
+        lines.append(
+            f"| {label} | " + " | ".join(_fmt(_get(s, key), kind) for s in subset.values()) + " |"
+        )
+    return lines
 
 
 if __name__ == "__main__":

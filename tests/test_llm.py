@@ -179,3 +179,26 @@ def test_parse_failure_with_raw_output_is_retried():
 def test_groq_uses_strict_structured_output():
     assert get_llm(Settings(groq_api_key="gsk_test"), provider="groq").strict is True
     assert get_llm(Settings(), provider="ollama").strict is None
+
+
+def test_daily_quota_errors_fail_fast():
+    from sql_analyst.llm import is_daily_quota_error
+
+    daily = groq.RateLimitError(
+        "Rate limit reached ... on tokens per day (TPD): Limit 200000, Used 199119",
+        response=httpx.Response(429, request=_REQ),
+        body=None,
+    )
+    assert is_daily_quota_error(daily)
+    assert not is_retryable(daily)
+    assert is_retryable(rate_limit())  # per-minute limits still retry
+
+
+def test_daily_quota_stops_after_one_call():
+    daily = groq.RateLimitError(
+        "tokens per day (TPD) exceeded", response=httpx.Response(429, request=_REQ), body=None
+    )
+    chat = _StubChat([daily, SQLDraft(reasoning="r", sql="SELECT 1")])
+    with pytest.raises(groq.RateLimitError):
+        LangChainLLM(chat, "stub", _fast_settings()).generate(SQLDraft, [], run_name="t")
+    assert chat.calls == 1

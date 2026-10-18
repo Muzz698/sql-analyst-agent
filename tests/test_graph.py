@@ -361,3 +361,17 @@ def test_schema_pruning_can_be_disabled(make_service):
     assert svc.ask("t1", "q").status == "answered"
     assert llm.calls_for("TableSelection") == []
     assert "CREATE TABLE Album" in llm.calls_for("SQLDraft")[0]["messages"][0].content
+
+
+def test_daily_quota_gives_friendly_message(make_service):
+    import groq
+    import httpx
+
+    req = httpx.Request("POST", "https://api.groq.com")
+    daily = groq.RateLimitError(
+        "tokens per day (TPD)", response=httpx.Response(429, request=req), body=None
+    )
+    svc, _ = make_service({"RouterDecision": [daily]})
+    r = svc.ask("t1", "q")
+    assert r.status == "error"
+    assert "daily LLM quota" in r.answer

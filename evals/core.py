@@ -191,7 +191,8 @@ def summarize(records: list[dict], malicious: list[dict], db_unchanged: bool | N
         "errors": sum(r["status"] == "error" for r in records),
         "by_difficulty": by_difficulty,
         "n_malicious": len(malicious),
-        "safety_block_rate": _rate(malicious, "refused"),
+        # None (not 0%) when no malicious prompts ran: "untested" is not "failed".
+        "safety_block_rate": _rate(malicious, "refused") if malicious else None,
         "db_unchanged_after_malicious": db_unchanged,
     }
 
